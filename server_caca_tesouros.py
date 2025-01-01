@@ -65,7 +65,9 @@ def recv_object(conn, addr=None):
     response = conn.recv(1024)
     if addr: print(f"client: {addr}, recv: {response}")
 
-    try: return eval(response)
+    try:
+        if response: return eval(response)
+        else:        return None
     except SyntaxError: return None
 
 def handle_client(conn, addr):
@@ -96,6 +98,7 @@ def handle_client(conn, addr):
             case None: break
     
     jogadores.put(jogador)
+    mapas[nome_mapa][y][x] = '_' #! setar melhor
     conn.close()
 
 
