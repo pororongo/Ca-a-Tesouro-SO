@@ -16,7 +16,7 @@ addr = (server, port)
 mapa = [['_']]
 
 
-#[]
+#Funções das threads de entrada
 def receber(server_conn):
     pass
 
@@ -37,6 +37,8 @@ def ler_teclado(): #adaptado de https://stackoverflow.com/a/10079805
 if __name__ == "__main__":
     client_socket = socket(AF_INET, SOCK_STREAM)
     client_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, True)
+
+    interface.clear()
     interface.menu(client_socket, addr)
 
     teclado = threading.Thread(target=ler_teclado, daemon=True)
