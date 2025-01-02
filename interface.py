@@ -1,5 +1,4 @@
 """Funções de lidar com a tela"""
-
 import os
 
 
@@ -67,7 +66,7 @@ def tutorial(client, addr):
         print("--------- [OPÇÃO INVÁLIDA] ---------\n")
         tutorial(client, addr)
         
-def rend_mapa(mapa: list[list], nome: str=''):
+def rend_mapa(mapa: list[list], nome: str):
     print(nome.upper())
 
     for linha in mapa:
@@ -75,6 +74,10 @@ def rend_mapa(mapa: list[list], nome: str=''):
         for cel in linha:
             print(f'{cel}{cel}'[:2], end=' ')
         print()
+
+def rend_tela(mapa: list[list], nome: str='', pontos: int=0):
+    rend_mapa(mapa, nome)
+    print(f"pontos: {pontos}")
 
 def clear():
     os.system('clear')

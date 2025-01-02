@@ -179,7 +179,7 @@ mapas = dict(
                              [_,  _, _, _, _] ]
 )
 
-#Movimento
+#Movimentação
 
 type vec2 = tuple[int, int]
 
@@ -223,14 +223,14 @@ def nascer(mapa_velho: str, mapa_novo: str, direcao_pref: vec2=(0,0)) -> vec2: #
     else:
         return x,y
 
-
-
-def mover(nome_mapa: str, jogador: str, pos: vec2, direcao: str, map_lock) -> tuple[vec2, str]:
+def mover(nome_mapa: str, jogador: str, pos: vec2, direcao: str, map_lock) -> tuple[vec2, str, int]:
     x, y = pos
     dx, dy = direcoes.get(direcao) or (0,0)
     nx, ny = x+dx, y+dy
 
-    if espaco_fora(nome_mapa, (nx,ny)): return (x, y), nome_mapa
+    if espaco_fora(nome_mapa, (nx,ny)): return (x, y), nome_mapa, 0
+
+    t = 0
     with map_lock:
         if portal(nome_mapa, (nx,ny)):
             mapas[nome_mapa][y][x] = '_' #! setar melhor
@@ -239,15 +239,16 @@ def mover(nome_mapa: str, jogador: str, pos: vec2, direcao: str, map_lock) -> tu
             nx, ny = nascer(nome_mapa, mapa_novo, direcao_pref=(dx, dy))
             mapas[mapa_novo][ny][nx] = jogador
 
-            return (nx, ny), mapa_novo
+            return (nx, ny), mapa_novo, t
 
-        elif espaco_vazio(nome_mapa, (nx,ny)):
+        elif (v := espaco_vazio(nome_mapa, (nx,ny))) or \
+             (t := tesouro(nome_mapa, (nx,ny))):
             mapa_novo = nome_mapa
             mapas[nome_mapa][y][x] = '_' #! setar melhor
             mapas[nome_mapa][ny][nx] = jogador
-            return (nx, ny), mapa_novo
+            return (nx, ny), mapa_novo, t
 
-    return (x, y), nome_mapa
+    return (x, y), nome_mapa, t
 
 
 #Funções de verificação de célula

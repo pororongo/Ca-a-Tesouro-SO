@@ -2,8 +2,10 @@ from socket import (socket, gethostbyname, gethostname,
                     AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR)
 
 import threading
-from queue import Queue
+import queue
+import time
 
+from serializador import send_object, recv_object
 import interface
 
 
@@ -12,15 +14,46 @@ port = 65432
 server = gethostbyname(gethostname())
 addr = (server, port)
 
-#[]
+#Variáveis recebidas do servidor
+nome_mapa = ''
 mapa = [['_']]
+pontos = 0
 
+#[]
+def delta_t(intervalo: float):
+    t0 = 0
+
+    def dt():
+        nonlocal t0
+
+        if time.time() - t0 > intervalo:
+            t0 = time.time()
+            return True
+        else:
+            return False
+
+    return dt
 
 #Funções das threads de entrada
+fila_mensagens = queue.Queue()
 def receber(server_conn):
-    pass
+    global pontos, mapa, nome_mapa
 
-fila_teclado = Queue()
+    buff = []
+    while True:
+        msg = recv_object(server_conn, buff)
+        match msg:
+            case ("mapa_novo", nome_novo, mapa_novo):
+                nome_mapa = nome_novo
+                mapa      = mapa_novo
+            case ("qtd_pontos", pts):
+                pontos = pts
+            case (comando, *resto):
+                fila_mensagens.put(obj)
+
+            case _: assert print(msg)
+
+fila_teclado = queue.Queue()
 def ler_teclado(): #adaptado de https://stackoverflow.com/a/10079805
     import termios, select, sys, tty
 
@@ -33,7 +66,7 @@ def ler_teclado(): #adaptado de https://stackoverflow.com/a/10079805
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
-#[]
+#Programa principal
 if __name__ == "__main__":
     client_socket = socket(AF_INET, SOCK_STREAM)
     client_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, True)
@@ -43,29 +76,28 @@ if __name__ == "__main__":
 
     teclado = threading.Thread(target=ler_teclado, daemon=True)
     teclado.start() #! obs: tem que ser depois do menu
-    
-    response = client_socket.recv(1024)
-    msg = eval(response)
-    match msg:
-        case ("mapa_novo", nome_mapa, mapa):
-            interface.clear()
-            interface.rend_mapa(mapa, nome_mapa)
-        case (comando, *resto):
-            assert print(comando, resto)
+
+    recebedor = threading.Thread(target=receber, args=[client_socket], daemon=True)
+    recebedor.start()
+
+    atualizar_estado = delta_t(0.20)
+    atualizar_tela   = delta_t(0.02)
 
     while True:
+        if atualizar_estado():
+            msg = ("atualizacao",)
+            send_object(client_socket, msg) 
+
+        if atualizar_tela():
+            interface.clear()
+            interface.rend_tela(mapa, nome_mapa, pontos)
+
         if not fila_teclado.empty():
             direcao = fila_teclado.get()
             if direcao in "wasd":
                 msg = ("direcao", direcao)
-                client_socket.send(repr(msg).encode()) 
-                response = client_socket.recv(1024)
-                match eval(response):
-                    case ("mapa_novo", nome_mapa, mapa):
-                        interface.clear()
-                        interface.rend_mapa(mapa, nome_mapa)
-                    case (comando, *resto):
-                        assert print(comando, resto)
+                send_object(client_socket, msg) 
+
 
     client_socket.close()
 

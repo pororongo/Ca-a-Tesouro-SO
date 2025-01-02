@@ -1,36 +1,28 @@
 from socket import (socket, gethostbyname, gethostname,
                     AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR)
 
+from collections import defaultdict
+
+from fases import mapas, nascer, mover
+from serializador import send_object, recv_object
+
 import threading
 import queue
 
-from fases import mapas, nascer, mover
 
-#Declaração da porta, servidor e máximo de jogadores permitidos
+#Declaração da porta, servidor, máximo de jogadores permitidos e pontuação
 port = 65432
 server = gethostbyname(gethostname())
 addr = (server, port)
+
+pontos = defaultdict[str, int](int)
 max_jogadores = 5
 
 #Multithreading
 map_lock = threading.Lock()
 jogadores = queue.Queue(max_jogadores)
 
-#[]
-def send_object(conn, obj, addr=None):
-    conn.send(msg := repr(obj).encode()) #! sintaxe
-
-    if addr: print(f"client: {addr}, send: {msg}")
-
-def recv_object(conn, addr=None):
-    response = conn.recv(1024)
-    if addr: print(f"client: {addr}, recv: {response}")
-
-    try:
-        if response: return eval(response)
-        else:        return None
-    except SyntaxError: return None
-
+#Função da thread de cada cliente
 def handle_client(conn, addr):
     jogador   = jogadores.get()
     nome_mapa = "hub_principal"
@@ -41,17 +33,29 @@ def handle_client(conn, addr):
         x,y = nascer('_', nome_mapa)
         mapas[nome_mapa][y][x] = jogador #! setar melhor
 
-    msg = ("mapa_novo", nome_mapa, mapas[nome_mapa])
-    send_object(conn, msg, addr)
-
+    pts = 0
+    buff = []
     while True:
-        response = recv_object(conn, addr)
+        response = recv_object(conn, buff, addr)
         match response:
             case ("direcao", direcao): #! lidar com direção errada
-                print(f"Jogador {jogador} quer andar.") #!
-                (x,y), nome_mapa = mover(nome_mapa, jogador, (x,y), direcao, map_lock)
+                (x,y), nome_mapa, pts = mover(nome_mapa, jogador, (x,y), direcao, map_lock)
                 msg = ("mapa_novo", nome_mapa, mapas[nome_mapa])
                 send_object(conn, msg, addr)
+
+                pontos[jogador] += pts
+                if pts:
+                    msg = ("qtd_pontos", pontos[jogador])
+                    send_object(conn, msg, addr)
+
+            case ("atualizacao",):
+                msg = ("mapa_novo", nome_mapa, mapas[nome_mapa])
+                send_object(conn, msg, addr)
+
+                if pts:
+                    msg = ("qtd_pontos", pontos[jogador])
+                    send_object(conn, msg, addr)
+
             case (comando, *resto):
                 assert print(comando, resto)
 
