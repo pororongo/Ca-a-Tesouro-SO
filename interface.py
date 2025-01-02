@@ -1,5 +1,31 @@
 """Funções de lidar com a tela"""
 import os
+from enum import StrEnum
+
+# adaptado de https://stackoverflow.com/a/287944
+class Cor(StrEnum):
+    PRETO        = '\033[30m'
+    VERMELHO_ESC = '\033[31m'
+    VERDE_ESC    = '\033[32m'
+    LARANJA      = '\033[33m'
+    AZUL         = '\033[34m'
+    ROXO         = '\033[35m'
+    CIANO_ESC    = '\033[36m'
+    CINZA_CLA    = '\033[37m'
+
+    CINZA_ESC    = '\033[90m'
+    VERMELHO_CLA = '\033[91m'
+    VERDE_CLA    = '\033[92m'
+    AMARELO      = '\033[93m'
+    AZUL_CLA     = '\033[94m'
+    VIOLETA      = '\033[95m'
+    CIANO        = '\033[96m'
+    BRANCO       = '\033[97m'
+
+    NEGRITO    = '\033[1m'
+    SUBLINHADO = '\033[4m'
+
+    FECHA = '\033[0m'
 
 
 #Função do menu
@@ -72,7 +98,24 @@ def rend_mapa(mapa: list[list], nome: str):
     for linha in mapa:
         print(end=' '*3)
         for cel in linha:
-            print(f'{cel}{cel}'[:2], end=' ')
+            fim = Cor.FECHA
+            if   cel.startswith('p'):
+                assert len(cel) == 2
+
+                if   cel[1] == '1': cor = Cor.VERDE_CLA
+                elif cel[1] == '2': cor = Cor.VERMELHO_CLA
+                elif cel[1] == '3': cor = Cor.CIANO
+                elif cel[1] == '4': cor = Cor.LARANJA
+                elif cel[1] == '5': cor = Cor.VIOLETA
+                else:               cor = Cor.VERDE_CLA
+
+            elif cel == '!': cor = Cor.NEGRITO + Cor.AMARELO
+            elif cel == '_': cor = Cor.CINZA_ESC
+            else:
+                cor = Cor.NEGRITO
+                if cel.startswith('hub'): cor += Cor.AZUL_CLA
+                else:                     cor += Cor.CINZA_CLA
+            print(cor + f'{cel}{cel}'[:2] + fim, end=' ')
         print()
 
 def rend_tela(mapa: list[list], nome: str='', pontos: int=0):
