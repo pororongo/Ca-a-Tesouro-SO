@@ -61,8 +61,8 @@ def tutorial(client, addr):
     print("numa busca por [RELÍQUIAS PARANORMAIS].")
     print("Movimente-se pelo mapa usando [WASD].")
     print("Os mapas possuem extensões [SUL], [NORTE], [LESTE] e [OESTE].")
-    print("O símbolo 0 te leva para uma dessas extensões.")
-    print("O símbolo 1 te leva para uma sala das [RELÍQUIAS].")
+    print("As portas azuis te levam pelo [MAPA PRINCIPAL].")
+    print("As portas brancas te levam pelas sala de [RELÍQUIAS].")
     print("O símbolo ! representa uma [RELÍQUIA].")
 
     print("Nas salas de [RELÍQUIAS], o [TEMPO] de estadia é [LIMITADO].")
@@ -91,7 +91,16 @@ def tutorial(client, addr):
         clear()
         print("[OPÇÃO INVÁLIDA]")
         tutorial(client, addr)
-        
+
+def cor_jogador(jogador: str) -> Cor:
+    if   jogador[1] == '1': return Cor.VERDE_CLA
+    elif jogador[1] == '2': return Cor.VERMELHO_CLA
+    elif jogador[1] == '3': return Cor.CIANO
+    elif jogador[1] == '4': return Cor.LARANJA
+    elif jogador[1] == '5': return Cor.VIOLETA
+
+    return Cor.VERDE_CLA
+
 def rend_mapa(mapa: list[list], nome: str):
     print(nome.upper())
 
@@ -101,14 +110,7 @@ def rend_mapa(mapa: list[list], nome: str):
             fim = Cor.FECHA
             if   cel.startswith('p'):
                 assert len(cel) == 2
-
-                if   cel[1] == '1': cor = Cor.VERDE_CLA
-                elif cel[1] == '2': cor = Cor.VERMELHO_CLA
-                elif cel[1] == '3': cor = Cor.CIANO
-                elif cel[1] == '4': cor = Cor.LARANJA
-                elif cel[1] == '5': cor = Cor.VIOLETA
-                else:               cor = Cor.VERDE_CLA
-
+                cor = cor_jogador(cel)                
             elif cel == '!': cor = Cor.NEGRITO + Cor.AMARELO
             elif cel == '_': cor = Cor.CINZA_ESC
             else:
@@ -121,6 +123,13 @@ def rend_mapa(mapa: list[list], nome: str):
 def rend_tela(mapa: list[list], nome: str='', pontos: int=0):
     rend_mapa(mapa, nome)
     print(f"pontos: {pontos}")
+
+def rend_placar(placar: list[tuple[str, int]]):
+    print(f"[FIM DO JOGO]")
+    print(f" {Cor.NEGRITO}PLACAR:{Cor.FECHA}")
+    for i, (jogador, pontos) in enumerate(sorted(placar, key=lambda x: x[1], reverse=True)):
+        cor = cor_jogador(jogador)
+        print(f"   {i+1}º. {cor}{jogador}{Cor.FECHA}: {pontos}")
 
 def clear():
     os.system('clear')

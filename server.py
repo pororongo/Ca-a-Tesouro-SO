@@ -3,7 +3,7 @@ from socket import (socket, gethostbyname, gethostname,
 
 from collections import defaultdict
 
-from fases import mapas, areas, area, nascer, mover, teletransportar
+from fases import mapas, areas, area, nascer, mover, teletransportar, contar_tesouros
 from serializador import send_object, recv_object
 
 import threading
@@ -22,6 +22,7 @@ max_jogadores = 5
 #Sincronização
 jogadores = queue.Queue(max_jogadores)
 
+fim_jogo   = threading.Event()
 map_lock   = threading.Lock()
 area_locks = {a: threading.Lock() for a in areas}
 
@@ -51,6 +52,11 @@ def handle_client(conn, addr):
 
     buff = []
     while True:
+        if fim_jogo.wait(0):
+            msg = ("placar", list(pontos.items()))
+            send_object(conn, msg, addr)
+            break
+
         response = recv_object(conn, buff, addr)
         match response:
             case ("direcao", direcao):
@@ -65,13 +71,16 @@ def handle_client(conn, addr):
                     area_nova = area(mapa_novo)
                     if area_nova != area_velha:
                         if area_nova == 'hub':
+                            vazio = not contar_tesouros(area_velha)
+
+                            nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao, comer=vazio)
+                            _ = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), comer=vazio)
                             area_locks[nome_area].release()
-                            nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao)
                         else: #! tempo e fila
                             if area_locks[area_nova].acquire(timeout=0.4):
                                 nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao)
                             else:
-                                mapa_novo, (nx,ny) = mapa_velho, (x, y)
+                                mapa_novo, (nx,ny) = mapa_velho, (x,y)
                     elif mapa_velho != mapa_novo:
                         nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao)
 
@@ -82,6 +91,8 @@ def handle_client(conn, addr):
                 x, y = (nx, ny)
 
                 if pts:
+                    if not contar_tesouros(): fim_jogo.set()
+                    
                     pontos[jogador] += pts*5
                     msg = ("qtd_pontos", pontos[jogador])
                     send_object(conn, msg, addr)
@@ -121,18 +132,24 @@ if __name__ == "__main__":
     try:
         sock = socket(AF_INET, SOCK_STREAM)
         sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, True)
+        sock.setblocking(False)
         sock.bind(addr)
 
         print("Aguardando jogadores...\n")
         threads = []
         sock.listen(max_jogadores)
-        while True:
-            conn, ad = sock.accept()
-            threads.append(t := threading.Thread(target=handle_client,
-                                                 args=(conn, ad)))
-            t.start()
+        while not fim_jogo.wait(0):
+            try:
+                conn, ad = sock.accept()
+                threads.append(t := threading.Thread(target=handle_client,
+                                                     args=(conn, ad)))
+                t.start()
+            except BlockingIOError:
+                continue
+
     except KeyboardInterrupt:
         print("Saindo...")
     finally:
+        for t in threads: t.join()
         sock.close()
 

@@ -207,8 +207,10 @@ def achar_celula(nome_mapa: str, procurado: str):
             if cel == procurado: return x, y
     return pos
 
-def nascer(mapa_novo: str, mapa_velho: str='_', direcao_pref: vec2=(0,0)) -> vec2: #! mapa velho opcional
+def nascer(mapa_novo: str, mapa_velho: str='_', direcao_pref: vec2=(0,0), comer: bool=False) -> vec2:
     x, y = achar_celula(mapa_novo, mapa_velho)
+
+    if comer: return x, y
 
     #! e se não tiver nenhum lugar?
     for direc in [direcao_pref] + rosa_dos_ventos:
@@ -240,20 +242,21 @@ def mover(nome_mapa: str, jogador: str, pos: vec2, direcao: vec2) -> tuple[vec2,
     return (x, y), nome_mapa
 
 def teletransportar(mapa_novo: str, dest: vec2, mapa_velho: str='', pos: vec2=(),
-                    jogador: str='') -> int:
+                    jogador: str='', comer=False) -> bool:
     nx, ny = dest
     if pos:
         x, y = pos
-        assert mapas[mapa_velho][y][x].startswith('p')
-        if not jogador: jogador = mapas[mapa_velho][y][x]
+        if not jogador:
+            assert mapas[mapa_velho][y][x].startswith('p')
+            jogador = mapas[mapa_velho][y][x]
         mapas[mapa_velho][y][x] = '_' #! setar melhor
     else:
         mapa_velho = mapa_novo
         assert jogador
 
-    t = 0
+    t = False
     if (v := espaco_vazio(mapa_novo, (nx,ny))) or \
-       (t := tesouro(mapa_novo, (nx,ny))):
+       (t := tesouro(mapa_novo, (nx,ny))) or comer:
         mapas[mapa_novo][ny][nx] = jogador
     return t
 
@@ -283,4 +286,16 @@ def espaco_fora(nome_mapa: str, pos: vec2) -> bool:
 
     return (0 > x or x >= len_x) or \
            (0 > y or y >= len_y)
+
+def contar_tesouros(nome_area: str='') -> int:
+    tesouros = 0
+    for nome_mapa, mapa in mapas.items():
+        if nome_area and area(nome_mapa) != nome_area:
+            continue 
+
+        for y, linha in enumerate(mapa):
+            for x, _ in enumerate(linha):
+                tesouros += tesouro(nome_mapa,(x,y))
+
+    return tesouros
 

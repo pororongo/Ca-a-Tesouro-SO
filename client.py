@@ -15,10 +15,14 @@ port = 65432
 server = gethostbyname(gethostname())
 addr = (server, port)
 
+#Sincronização
+fim_jogo = threading.Event()
+
 #Variáveis recebidas do servidor
 nome_mapa = ''
 mapa = [['_']]
 pontos = 0
+placar = []
 
 #[]
 def delta_t(intervalo: float):
@@ -37,7 +41,7 @@ def delta_t(intervalo: float):
 
 #Funções das threads de entrada
 def receber(server_conn):
-    global pontos, mapa, nome_mapa
+    global pontos, mapa, nome_mapa, placar
 
     buff = []
     while True:
@@ -48,6 +52,8 @@ def receber(server_conn):
                 mapa      = mapa_novo
             case ("qtd_pontos", pts):
                 pontos = pts
+            case ("placar", placar):
+                fim_jogo.set(); break
             case _:
                 assert print(msg)
 
@@ -84,10 +90,15 @@ if __name__ == "__main__":
         recebedor = threading.Thread(target=receber, args=[client_socket], daemon=True)
         recebedor.start()
 
-        atualizar_estado = delta_t(.60)
+        atualizar_estado = delta_t(.50)
         atualizar_tela   = delta_t(.02)
 
         while True:
+            if fim_jogo.wait(0):
+                interface.clear()
+                interface.rend_placar(placar)
+                break
+
             if atualizar_estado():
                 msg = ("atualizacao",)
                 send_object(client_socket, msg)
@@ -104,7 +115,7 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         interface.clear()
-        print("[SAINDO]")
     finally:
+        print("[SAINDO]")
         client_socket.close()
 
