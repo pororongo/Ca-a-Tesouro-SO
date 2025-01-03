@@ -46,11 +46,11 @@ def menu(client, addr):
         tutorial(client, addr)
     elif opcao == "0":
         clear()
-        print("Encerrando o jogo...")
+        print("[SAINDO]")
         exit()
     else:
         clear()
-        print("--------- [OPÇÃO INVÁLIDA] ---------")
+        print("[OPÇÃO INVÁLIDA]")
         menu(client, addr)
 
 #Função do tutorial        
@@ -85,11 +85,11 @@ def tutorial(client, addr):
         menu(client, addr)
     elif opcao == '0':
         clear()
-        print("Encerrando o jogo...")
+        print("[SAINDO]")
         exit()
     else:
         clear()
-        print("--------- [OPÇÃO INVÁLIDA] ---------\n")
+        print("[OPÇÃO INVÁLIDA]")
         tutorial(client, addr)
         
 def rend_mapa(mapa: list[list], nome: str):
