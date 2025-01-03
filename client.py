@@ -84,8 +84,8 @@ if __name__ == "__main__":
         recebedor = threading.Thread(target=receber, args=[client_socket], daemon=True)
         recebedor.start()
 
-        atualizar_estado = delta_t(0.20)
-        atualizar_tela   = delta_t(0.02)
+        atualizar_estado = delta_t(.60)
+        atualizar_tela   = delta_t(.02)
 
         while True:
             if atualizar_estado():
@@ -101,6 +101,7 @@ if __name__ == "__main__":
                 if direcao in "wasd":
                     msg = ("direcao", direcao)
                     send_object(client_socket, msg) 
+
     except KeyboardInterrupt:
         interface.clear()
         print("[SAINDO]")
