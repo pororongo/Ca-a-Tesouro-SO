@@ -223,7 +223,7 @@ def nascer(mapa_novo: str, mapa_velho: str='_', direcao_pref: vec2=(0,0), comer:
     else:
         return x,y
 
-def mover(nome_mapa: str, jogador: str, pos: vec2, direcao: vec2) -> tuple[vec2, str]:
+def mover(nome_mapa: str, jogador: str, pos: vec2, direcao: vec2) -> tuple[vec2 | None, str]:
     x, y = pos
     dx, dy = direcao
     nx, ny = x+dx, y+dy
@@ -233,7 +233,7 @@ def mover(nome_mapa: str, jogador: str, pos: vec2, direcao: vec2) -> tuple[vec2,
     t = 0
     if portal(nome_mapa, (nx,ny)):
         mapa_novo = mapas[nome_mapa][ny][nx]
-        return (x, y), mapa_novo
+        return None, mapa_novo
 
     elif espaco_vazio(nome_mapa, (nx,ny)) or \
          tesouro(nome_mapa, (nx,ny)):

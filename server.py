@@ -41,24 +41,25 @@ direcoes: dict[str, vec2] = {
 #[]
 def mudar_pos(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
               jogador: str, direcao: vec2=(0,0)) -> tuple[str, vec2, int]:
-    x, y = pos; nx, ny = dest
+    x, y = pos
 
     area_velha = area(mapa_velho)
     area_nova  = area(mapa_novo)
 
     if area_nova != area_velha:
         print(f"mudar_pos: {area_nova=} != {area_velha=}")
-        print(f"mudar_pos:{x,y} -> {nx,ny}: {mapa_velho=} != {mapa_novo=}")
-        mapa_novo, (nx, ny), pts = mudar_area(mapa_novo, (nx,ny),
+        print(f"mudar_pos:{x,y} -> {dest}: {mapa_velho=} != {mapa_novo=}")
+        mapa_novo, (nx, ny), pts = mudar_area(mapa_novo, dest,
                                               mapa_velho, (x,y),
                                               jogador, direcao)
     elif mapa_velho != mapa_novo:
         print(f"mudar_pos: {area_nova=} == {area_velha=}")
-        print(f"mudar_pos:{x,y} -> {nx,ny}: {mapa_velho=} != {mapa_novo=}")
+        print(f"mudar_pos:{x,y} -> {dest}: {mapa_velho=} != {mapa_novo=}")
         nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao)
         pts = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), jogador=jogador)
     else:
-        print(f"mudar_pos:{x,y} -> {nx,ny}: {mapa_velho=} == {mapa_novo=}")
+        print(f"mudar_pos:{x,y} -> {dest}: {mapa_velho=} == {mapa_novo=}")
+        nx, ny = dest
         pts = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), jogador=jogador)
 
     return mapa_novo, (nx, ny), pts
@@ -66,7 +67,7 @@ def mudar_pos(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
 
 def mudar_area(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
                jogador: str, direcao: vec2=(0,0)) -> tuple[str, vec2, int]:
-    x, y = pos; nx, ny = dest
+    x,y = pos
 
     area_velha = area(mapa_velho)
     area_nova  = area(mapa_novo)
@@ -74,18 +75,22 @@ def mudar_area(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
     pts = 0
     if area_nova == 'hub':
         print(f"mudar_area ({jogador}, hub): {area_velha=} != {area_nova=}")
-        print(f"mudar_area:{x,y} -> {nx,ny}: {mapa_velho=} != {mapa_novo=}")
+        print(f"mudar_area:{x,y} -> {dest}: {mapa_velho=} != {mapa_novo=}")
         globais.timer.cancel()
 
         vazio = not contar_tesouros(area_velha)
-        nx,ny = nascer(mapa_novo, area_velha, direcao_pref=direcao, comer=vazio)
+        if vazio or not dest:
+            nx, ny = nascer(mapa_novo, area_velha, direcao_pref=direcao, comer=vazio)
+        else:
+            nx, ny = dest
+
         pts = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), comer=vazio,
                                                                      jogador=jogador)
         area_locks[area_velha].release()
         globais.ponto_fora = (mapa_novo, (nx,ny))
     else: #! fila
         print(f"mudar_area ({jogador}, else): {area_velha=} != {area_nova=}")
-        print(f"mudar_area:{x,y} -> {nx,ny}: {mapa_velho=} != {mapa_novo=}")
+        print(f"mudar_area:{x,y} -> {dest}: {mapa_velho=} != {mapa_novo=}")
         if area_locks[area_nova].acquire(timeout=0.4):
             print(f"mudar_area ({jogador} conseguiu entrar) ")
             globais.ponto_fora = (mapa_velho, (x,y))
@@ -154,9 +159,9 @@ def handle_client(conn, addr):
                 #! fazer função
                 with map_lock:
                     mapa_velho = nome_mapa
-                    (nx, ny), mapa_novo = mover(nome_mapa, jogador, (x,y), direcao)
+                    npos, mapa_novo = mover(nome_mapa, jogador, (x,y), direcao)
 
-                    mapa_novo, (nx, ny), pts = mudar_pos(mapa_novo, (nx,ny),
+                    mapa_novo, (nx, ny), pts = mudar_pos(mapa_novo, npos,
                                                          mapa_velho, (x,y),
                                                          jogador, direcao)
 
