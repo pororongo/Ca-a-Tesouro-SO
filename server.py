@@ -47,18 +47,13 @@ def mudar_pos(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
     area_nova  = area(mapa_novo)
 
     if area_nova != area_velha:
-        print(f"mudar_pos: {area_nova=} != {area_velha=}")
-        print(f"mudar_pos:{x,y} -> {dest}: {mapa_velho=} != {mapa_novo=}")
         mapa_novo, (nx, ny), pts = mudar_area(mapa_novo, dest,
                                               mapa_velho, (x,y),
                                               jogador, direcao)
     elif mapa_velho != mapa_novo:
-        print(f"mudar_pos: {area_nova=} == {area_velha=}")
-        print(f"mudar_pos:{x,y} -> {dest}: {mapa_velho=} != {mapa_novo=}")
         nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao)
         pts = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), jogador=jogador)
     else:
-        print(f"mudar_pos:{x,y} -> {dest}: {mapa_velho=} == {mapa_novo=}")
         nx, ny = dest
         pts = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), jogador=jogador)
 
@@ -74,8 +69,7 @@ def mudar_area(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
 
     pts = 0
     if area_nova == 'hub':
-        print(f"mudar_area ({jogador}, hub): {area_velha=} != {area_nova=}")
-        print(f"mudar_area:{x,y} -> {dest}: {mapa_velho=} != {mapa_novo=}")
+        print(f"mudar_area: {jogador} {x,y}{mapa_velho} -> {mapa_novo}{dest}")
         globais.timer.cancel()
 
         vazio = not contar_tesouros(area_velha)
@@ -89,10 +83,9 @@ def mudar_area(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
         area_locks[area_velha].release()
         globais.ponto_fora = (mapa_novo, (nx,ny))
     else: #! fila
-        print(f"mudar_area ({jogador}, else): {area_velha=} != {area_nova=}")
-        print(f"mudar_area:{x,y} -> {dest}: {mapa_velho=} != {mapa_novo=}")
-        if area_locks[area_nova].acquire(timeout=0.4):
-            print(f"mudar_area ({jogador} conseguiu entrar) ")
+        print(f"mudar_area: {jogador} tenta {x,y}{mapa_velho} -> {mapa_novo}{dest}")
+        if area_locks[area_nova].acquire(timeout=0.3):
+            print(f"mudar_area: {jogador} conseguiu entrar (lock solta)")
             globais.ponto_fora = (mapa_velho, (x,y))
             globais.timer = threading.Timer(10, globais.tempo_esgotado.set)
             globais.timer.start()
@@ -100,9 +93,8 @@ def mudar_area(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
             nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao)
             pts = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), jogador=jogador)
         else:
-            print(f"mudar_area ({jogador} não conseguiu entrar) ")
+            print(f"mudar_area: {jogador} não conseguiu entrar (lock ativa)")
             mapa_novo, (nx,ny) = mapa_velho, (x,y)
-            print(f"mudar_area:{x,y} -> {nx,ny}: {mapa_velho=} != {mapa_novo=}")
     return mapa_novo, (nx, ny), pts
 
 #[]
@@ -172,7 +164,8 @@ def handle_client(conn, addr):
                 if pts and not contar_tesouros(): fim_jogo.set()
 
             case ("atualizacao",):
-                atualiza_cliente(conn, nome_mapa, jogador, 0, addr)
+                # atualiza o cliente mas não faz log do enviado
+                atualiza_cliente(conn, nome_mapa, jogador, 0)
 
             case (comando, *resto):
                 assert print(comando, resto)
