@@ -241,7 +241,8 @@ def mover(nome_mapa: str, jogador: str, pos: vec2, direcao: vec2) -> tuple[vec2 
 
     return (x, y), nome_mapa
 
-def teletransportar(mapa_novo: str, dest: vec2, mapa_velho: str='', pos: vec2=(),
+def teletransportar(mapa_novo: str, dest: vec2,
+                    mapa_velho: str='', pos: vec2 | None=None,
                     jogador: str='', comer=False) -> bool:
     nx, ny = dest
     if pos:

@@ -20,7 +20,7 @@ max_jogadores = 5
 
 
 #Sincronização
-jogadores = queue.Queue(max_jogadores)
+jogadores = queue.Queue[str](max_jogadores)
 
 fim_jogo   = threading.Event()
 map_lock   = threading.Lock()
@@ -38,7 +38,6 @@ direcoes: dict[str, vec2] = {
     "d": ( 1,  0),
 }
 
-#[]
 def mudar_pos(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
               jogador: str, direcao: vec2=(0,0)) -> tuple[str, vec2, int]:
     x, y = pos
@@ -96,18 +95,6 @@ def mudar_area(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
             print(f"mudar_area: {jogador} não conseguiu entrar (lock ativa)")
             mapa_novo, (nx,ny) = mapa_velho, (x,y)
     return mapa_novo, (nx, ny), pts
-
-#[]
-def atualiza_cliente(conn, nome_mapa: str, jogador: str, pts: int, addr=None):
-    if pts:
-        if not contar_tesouros(): fim_jogo.set()
-        
-        pontos[jogador] += pts*5
-        msg = ("qtd_pontos", pontos[jogador])
-        send_object(conn, msg, addr)
-
-    msg = ("mapa_novo", nome_mapa, mapas[nome_mapa])
-    send_object(conn, msg, addr)
 
 #Função da thread de cada cliente
 def handle_client(conn, addr):
@@ -184,7 +171,22 @@ def handle_client(conn, addr):
 
     print(f"Jogador {jogador} em {addr} desconectado.")
 
+#Função auxiliar para atualizar o estado do cliente
+def atualiza_cliente(conn, nome_mapa: str, jogador: str, pts: int, addr=None):
+    msg: tuple
+    if pts:
+        if not contar_tesouros(): fim_jogo.set()
+        
+        pontos[jogador] += pts*5
+        msg = ("qtd_pontos", pontos[jogador])
+        send_object(conn, msg, addr)
 
+    msg = ("mapa_novo", nome_mapa, mapas[nome_mapa])
+    send_object(conn, msg, addr)
+
+
+
+#"Função" principal
 if __name__ == "__main__":
     for i in range(max_jogadores):
         jogadores.put(f"p{i+1}")

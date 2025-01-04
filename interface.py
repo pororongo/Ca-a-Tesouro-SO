@@ -108,7 +108,7 @@ def rend_mapa(mapa: list[list], nome: str):
         print(end=' '*3)
         for cel in linha:
             fim = Cor.FECHA
-            if   cel.startswith('p'):
+            if cel.startswith('p'):
                 assert len(cel) == 2
                 cor = cor_jogador(cel)                
             elif cel == '!': cor = Cor.NEGRITO + Cor.AMARELO

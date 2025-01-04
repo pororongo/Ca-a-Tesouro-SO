@@ -19,12 +19,13 @@ addr = (server, port)
 fim_jogo = threading.Event()
 
 #Variáveis recebidas do servidor
-nome_mapa = ''
-mapa = [['_']]
-pontos = 0
-placar = []
+placar = list[tuple[str, int]]()
 
-#[]
+nome_mapa = ''
+mapa   = [['_']]
+pontos = 0
+
+#Fábrica de "timers"
 def delta_t(intervalo: float):
     t0 = 0
 
@@ -57,7 +58,7 @@ def receber(server_conn):
             case _:
                 assert print(msg)
 
-fila_teclado = queue.Queue()
+fila_teclado = queue.Queue[str]()
 def ler_teclado(): #adaptado de https://stackoverflow.com/a/10079805
     import termios, select, sys, tty
 
@@ -77,22 +78,23 @@ def ler_teclado(): #adaptado de https://stackoverflow.com/a/10079805
 
 #Programa principal
 if __name__ == "__main__":
-    client_socket = socket(AF_INET, SOCK_STREAM)
-    client_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, True)
+    servidor = socket(AF_INET, SOCK_STREAM)
+    servidor.setsockopt(SOL_SOCKET, SO_REUSEADDR, True)
 
     try:
         interface.clear()
-        interface.menu(client_socket, addr)
+        interface.menu(servidor, addr)
 
         teclado = threading.Thread(target=ler_teclado, daemon=True)
         teclado.start() # obs: tem que ser depois do menu
 
-        recebedor = threading.Thread(target=receber, args=[client_socket], daemon=True)
+        recebedor = threading.Thread(target=receber, args=[servidor], daemon=True)
         recebedor.start()
 
         atualizar_estado = delta_t(.500)
         atualizar_tela   = delta_t(.020)
 
+        msg: tuple
         while True:
             if fim_jogo.wait(0):
                 interface.clear()
@@ -101,7 +103,7 @@ if __name__ == "__main__":
 
             if atualizar_estado():
                 msg = ("atualizacao",)
-                send_object(client_socket, msg)
+                send_object(servidor, msg)
 
             if atualizar_tela():
                 interface.clear()
@@ -111,11 +113,11 @@ if __name__ == "__main__":
                 direcao = fila_teclado.get()
                 if direcao in "wasd":
                     msg = ("direcao", direcao)
-                    send_object(client_socket, msg) 
+                    send_object(servidor, msg) 
 
     except KeyboardInterrupt:
         interface.clear()
     finally:
         print("[SAINDO]")
-        client_socket.close()
+        servidor.close()
 
