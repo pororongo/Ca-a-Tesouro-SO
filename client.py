@@ -85,13 +85,13 @@ if __name__ == "__main__":
         interface.menu(client_socket, addr)
 
         teclado = threading.Thread(target=ler_teclado, daemon=True)
-        teclado.start() #! obs: tem que ser depois do menu
+        teclado.start() # obs: tem que ser depois do menu
 
         recebedor = threading.Thread(target=receber, args=[client_socket], daemon=True)
         recebedor.start()
 
-        atualizar_estado = delta_t(.50)
-        atualizar_tela   = delta_t(.02)
+        atualizar_estado = delta_t(.500)
+        atualizar_tela   = delta_t(.020)
 
         while True:
             if fim_jogo.wait(0):

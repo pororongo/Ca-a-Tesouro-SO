@@ -113,7 +113,7 @@ def atualiza_cliente(conn, nome_mapa: str, jogador: str, pts: int, addr=None):
 def handle_client(conn, addr):
     jogador = jogadores.get()
 
-    print(f"Jogador: {addr} conectado como {jogador}.")
+    print(f"Jogador em {addr} conectado como {jogador}.")
 
     nome_mapa = "hub_principal"
 
@@ -148,7 +148,6 @@ def handle_client(conn, addr):
         match response:
             case ("direcao", direcao):
                 direcao = direcoes.get(direcao) or (0,0)
-                #! fazer função
                 with map_lock:
                     mapa_velho = nome_mapa
                     npos, mapa_novo = mover(nome_mapa, jogador, (x,y), direcao)
@@ -183,7 +182,7 @@ def handle_client(conn, addr):
     conn.close()
     jogadores.put(jogador)
 
-    print(f"Jogador: {addr} desconectado como {jogador}.")
+    print(f"Jogador {jogador} em {addr} desconectado.")
 
 
 if __name__ == "__main__":
@@ -201,8 +200,8 @@ if __name__ == "__main__":
         sock.listen(max_jogadores)
         while not fim_jogo.wait(0):
             try:
-                conn, ad = sock.accept()
-                threads.append(t := threading.Thread(target=handle_client, args=(conn, ad)))
+                cliente = sock.accept()
+                threads.append(t := threading.Thread(target=handle_client, args=cliente))
                 t.start()
             except BlockingIOError:
                 continue
