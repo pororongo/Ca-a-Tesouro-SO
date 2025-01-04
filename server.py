@@ -26,6 +26,7 @@ fim_jogo   = threading.Event()
 map_lock   = threading.Lock()
 area_locks = {a: threading.Lock() for a in areas}
 
+globais = threading.local()
 
 #Movimentação
 type vec2 = tuple[int, int]
@@ -37,6 +38,80 @@ direcoes: dict[str, vec2] = {
     "d": ( 1,  0),
 }
 
+#[]
+def mudar_pos(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
+              jogador: str, direcao: vec2=(0,0)) -> tuple[str, vec2, int]:
+    x, y = pos; nx, ny = dest
+
+    area_velha = area(mapa_velho)
+    area_nova  = area(mapa_novo)
+
+    if area_nova != area_velha:
+        print(f"mudar_pos: {area_nova=} != {area_velha=}")
+        print(f"mudar_pos:{x,y} -> {nx,ny}: {mapa_velho=} != {mapa_novo=}")
+        mapa_novo, (nx, ny), pts = mudar_area(mapa_novo, (nx,ny),
+                                              mapa_velho, (x,y),
+                                              jogador, direcao)
+    elif mapa_velho != mapa_novo:
+        print(f"mudar_pos: {area_nova=} == {area_velha=}")
+        print(f"mudar_pos:{x,y} -> {nx,ny}: {mapa_velho=} != {mapa_novo=}")
+        nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao)
+        pts = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), jogador=jogador)
+    else:
+        print(f"mudar_pos:{x,y} -> {nx,ny}: {mapa_velho=} == {mapa_novo=}")
+        pts = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), jogador=jogador)
+
+    return mapa_novo, (nx, ny), pts
+
+
+def mudar_area(mapa_novo: str, dest: vec2, mapa_velho: str, pos: vec2,
+               jogador: str, direcao: vec2=(0,0)) -> tuple[str, vec2, int]:
+    x, y = pos; nx, ny = dest
+
+    area_velha = area(mapa_velho)
+    area_nova  = area(mapa_novo)
+
+    pts = 0
+    if area_nova == 'hub':
+        print(f"mudar_area ({jogador}, hub): {area_velha=} != {area_nova=}")
+        print(f"mudar_area:{x,y} -> {nx,ny}: {mapa_velho=} != {mapa_novo=}")
+        globais.timer.cancel()
+
+        vazio = not contar_tesouros(area_velha)
+        nx,ny = nascer(mapa_novo, area_velha, direcao_pref=direcao, comer=vazio)
+        pts = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), comer=vazio,
+                                                                     jogador=jogador)
+        area_locks[area_velha].release()
+        globais.ponto_fora = (mapa_novo, (nx,ny))
+    else: #! fila
+        print(f"mudar_area ({jogador}, else): {area_velha=} != {area_nova=}")
+        print(f"mudar_area:{x,y} -> {nx,ny}: {mapa_velho=} != {mapa_novo=}")
+        if area_locks[area_nova].acquire(timeout=0.4):
+            print(f"mudar_area ({jogador} conseguiu entrar) ")
+            globais.ponto_fora = (mapa_velho, (x,y))
+            globais.timer = threading.Timer(10, globais.tempo_esgotado.set)
+            globais.timer.start()
+
+            nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao)
+            pts = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), jogador=jogador)
+        else:
+            print(f"mudar_area ({jogador} não conseguiu entrar) ")
+            mapa_novo, (nx,ny) = mapa_velho, (x,y)
+            print(f"mudar_area:{x,y} -> {nx,ny}: {mapa_velho=} != {mapa_novo=}")
+    return mapa_novo, (nx, ny), pts
+
+#[]
+def atualiza_cliente(conn, nome_mapa: str, jogador: str, pts: int, addr=None):
+    if pts:
+        if not contar_tesouros(): fim_jogo.set()
+        
+        pontos[jogador] += pts*5
+        msg = ("qtd_pontos", pontos[jogador])
+        send_object(conn, msg, addr)
+
+    msg = ("mapa_novo", nome_mapa, mapas[nome_mapa])
+    send_object(conn, msg, addr)
+
 #Função da thread de cada cliente
 def handle_client(conn, addr):
     jogador = jogadores.get()
@@ -44,11 +119,13 @@ def handle_client(conn, addr):
     print(f"Jogador: {addr} conectado como {jogador}.")
 
     nome_mapa = "hub_principal"
-    nome_area = area(nome_mapa)
 
     with map_lock:
         x,y = nascer(nome_mapa)
         teletransportar(nome_mapa, (x,y), jogador=jogador)
+
+    globais.ponto_fora = (nome_mapa, (x,y))
+    globais.tempo_esgotado = threading.Event()
 
     buff = []
     while True:
@@ -57,55 +134,40 @@ def handle_client(conn, addr):
             send_object(conn, msg, addr)
             break
 
+        if globais.tempo_esgotado.wait(0):
+            mapa_novo, (nx, ny) = globais.ponto_fora
+
+            mapa_velho, (x, y) = nome_mapa, (x, y)
+            mapa_novo, (nx, ny), pts = mudar_pos(mapa_novo, (nx,ny),
+                                                 mapa_velho, (x,y),
+                                                 jogador, direcao)
+            nome_mapa = mapa_novo
+            x, y = (nx, ny)
+
+            atualiza_cliente(conn, nome_mapa, jogador, pts, addr)
+            globais.tempo_esgotado.clear()
+
         response = recv_object(conn, buff, addr)
         match response:
             case ("direcao", direcao):
                 direcao = direcoes.get(direcao) or (0,0)
                 #! fazer função
                 with map_lock:
+                    mapa_velho = nome_mapa
                     (nx, ny), mapa_novo = mover(nome_mapa, jogador, (x,y), direcao)
 
-                    mapa_velho = nome_mapa
-                    area_velha = nome_area
-
-                    area_nova = area(mapa_novo)
-                    if area_nova != area_velha:
-                        if area_nova == 'hub':
-                            vazio = not contar_tesouros(area_velha)
-
-                            nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao, comer=vazio)
-                            _ = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), comer=vazio)
-                            area_locks[nome_area].release()
-                        else: #! tempo e fila
-                            if area_locks[area_nova].acquire(timeout=0.4):
-                                nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao)
-                            else:
-                                mapa_novo, (nx,ny) = mapa_velho, (x,y)
-                    elif mapa_velho != mapa_novo:
-                        nx,ny = nascer(mapa_novo, mapa_velho, direcao_pref=direcao)
-
-                    pts = teletransportar(mapa_novo, (nx,ny), mapa_velho, (x,y), jogador=jogador)
+                    mapa_novo, (nx, ny), pts = mudar_pos(mapa_novo, (nx,ny),
+                                                         mapa_velho, (x,y),
+                                                         jogador, direcao)
 
                 nome_mapa = mapa_novo
-                nome_area = area(nome_mapa)
                 x, y = (nx, ny)
 
-                if pts:
-                    if not contar_tesouros(): fim_jogo.set()
-                    
-                    pontos[jogador] += pts*5
-                    msg = ("qtd_pontos", pontos[jogador])
-                    send_object(conn, msg, addr)
-
-                msg = ("mapa_novo", nome_mapa, mapas[nome_mapa])
-                send_object(conn, msg, addr)
+                atualiza_cliente(conn, nome_mapa, jogador, pts, addr)
+                if pts and not contar_tesouros(): fim_jogo.set()
 
             case ("atualizacao",):
-                msg = ("mapa_novo", nome_mapa, mapas[nome_mapa])
-                send_object(conn, msg, addr)
-
-                #! msg = ("qtd_pontos", pontos[jogador])
-                #! send_object(conn, msg, addr)
+                atualiza_cliente(conn, nome_mapa, jogador, 0, addr)
 
             case (comando, *resto):
                 assert print(comando, resto)
@@ -115,6 +177,7 @@ def handle_client(conn, addr):
     with map_lock:
         mapas[nome_mapa][y][x] = '_' #! setar melhor
 
+    nome_area = area(nome_mapa)
     if nome_area != 'hub':
         if area_locks[nome_area].locked():
             area_locks[nome_area].release()
@@ -141,8 +204,7 @@ if __name__ == "__main__":
         while not fim_jogo.wait(0):
             try:
                 conn, ad = sock.accept()
-                threads.append(t := threading.Thread(target=handle_client,
-                                                     args=(conn, ad)))
+                threads.append(t := threading.Thread(target=handle_client, args=(conn, ad)))
                 t.start()
             except BlockingIOError:
                 continue
